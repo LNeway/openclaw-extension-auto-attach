@@ -1,4 +1,5 @@
 const DEFAULT_PORT = 18792
+const DEFAULT_DOMAINS = 'xiaohongshu.com, *.xiaohongshu.com'
 
 function clampPort(value) {
   const n = Number.parseInt(String(value || ''), 10)
@@ -15,6 +16,13 @@ function updateRelayUrl(port) {
 
 function setStatus(kind, message) {
   const status = document.getElementById('status')
+  if (!status) return
+  status.dataset.kind = kind || ''
+  status.textContent = message || ''
+}
+
+function setDomainsStatus(kind, message) {
+  const status = document.getElementById('domains-status')
   if (!status) return
   status.dataset.kind = kind || ''
   status.textContent = message || ''
@@ -39,11 +47,14 @@ async function checkRelayReachable(port) {
 }
 
 async function load() {
-  const stored = await chrome.storage.local.get(['relayPort'])
+  const stored = await chrome.storage.local.get(['relayPort', 'autoAttachDomains'])
   const port = clampPort(stored.relayPort)
   document.getElementById('port').value = String(port)
   updateRelayUrl(port)
   await checkRelayReachable(port)
+  
+  const domains = stored.autoAttachDomains || DEFAULT_DOMAINS
+  document.getElementById('domains').value = domains
 }
 
 async function save() {
@@ -55,5 +66,15 @@ async function save() {
   await checkRelayReachable(port)
 }
 
+async function saveDomains() {
+  const input = document.getElementById('domains')
+  const domains = input.value.trim() || DEFAULT_DOMAINS
+  await chrome.storage.local.set({ autoAttachDomains: domains })
+  input.value = domains
+  setDomainsStatus('ok', 'Auto-attach domains saved successfully')
+  setTimeout(() => setDomainsStatus('', ''), 3000)
+}
+
 document.getElementById('save').addEventListener('click', () => void save())
+document.getElementById('save-domains').addEventListener('click', () => void saveDomains())
 void load()

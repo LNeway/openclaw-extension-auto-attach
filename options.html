@@ -188,6 +188,19 @@
           </div>
           <div class="status" id="status"></div>
         </div>
+
+        <div class="card">
+          <h2>Auto-attach domains</h2>
+          <label for="domains">Domains (comma-separated, supports wildcards like *.example.com)</label>
+          <div class="row">
+            <input id="domains" type="text" style="width: 100%; max-width: 500px;" placeholder="xiaohongshu.com, *.xiaohongshu.com" />
+            <button id="save-domains" type="button">Save</button>
+          </div>
+          <div class="hint">
+            Extension will automatically attach to tabs matching these domains. Default: <code>xiaohongshu.com, *.xiaohongshu.com</code>
+          </div>
+          <div class="status" id="domains-status"></div>
+        </div>
       </div>
 
       <script type="module" src="options.js"></script>

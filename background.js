@@ -42,6 +42,24 @@ async function getRelayPort() {
   return n
 }
 
+async function getAutoAttachDomains() {
+  const stored = await chrome.storage.local.get(['autoAttachDomains'])
+  const raw = stored.autoAttachDomains
+  if (typeof raw === 'string' && raw.trim()) {
+    return raw.split(',').map(d => d.trim()).filter(d => d.length > 0)
+  }
+  return ['xiaohongshu.com', '*.xiaohongshu.com']
+}
+
+function matchDomain(hostname, pattern) {
+  if (pattern === hostname) return true
+  if (pattern.startsWith('*.')) {
+    const suffix = pattern.slice(2)
+    return hostname === suffix || hostname.endsWith('.' + suffix)
+  }
+  return false
+}
+
 function setBadge(tabId, kind) {
   const cfg = BADGE[kind]
   void chrome.action.setBadgeText({ tabId, text: cfg.text })
@@ -436,18 +454,19 @@ chrome.runtime.onInstalled.addListener(() => {
   void chrome.runtime.openOptionsPage()
 })
 
-function isXiaohongshuUrl(url) {
+async function shouldAutoAttach(url) {
   if (!url) return false
   try {
     const parsed = new URL(url)
-    return parsed.hostname === 'www.xiaohongshu.com' || parsed.hostname === 'xiaohongshu.com'
+    const domains = await getAutoAttachDomains()
+    return domains.some(pattern => matchDomain(parsed.hostname, pattern))
   } catch {
     return false
   }
 }
 
 async function autoAttachIfNeeded(tabId, url) {
-  if (!isXiaohongshuUrl(url)) return
+  if (!(await shouldAutoAttach(url))) return
   
   const existing = tabs.get(tabId)
   if (existing?.state === 'connected' || existing?.state === 'connecting') return
@@ -456,7 +475,7 @@ async function autoAttachIfNeeded(tabId, url) {
   setBadge(tabId, 'connecting')
   void chrome.action.setTitle({
     tabId,
-    title: 'OpenClaw Browser Relay: auto-attaching to xiaohongshu…',
+    title: 'OpenClaw Browser Relay: auto-attaching…',
   })
 
   try {
