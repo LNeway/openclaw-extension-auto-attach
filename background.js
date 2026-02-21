@@ -466,10 +466,16 @@ async function shouldAutoAttach(url) {
 }
 
 async function autoAttachIfNeeded(tabId, url) {
-  if (!(await shouldAutoAttach(url))) return
+  const shouldAttach = await shouldAutoAttach(url)
+  console.log('[auto-attach] checking tabId:', tabId, 'url:', url, 'shouldAttach:', shouldAttach)
+  
+  if (!shouldAttach) return
   
   const existing = tabs.get(tabId)
-  if (existing?.state === 'connected' || existing?.state === 'connecting') return
+  if (existing?.state === 'connected' || existing?.state === 'connecting') {
+    console.log('[auto-attach] skipping - tab already', existing.state)
+    return
+  }
   
   tabs.set(tabId, { state: 'connecting' })
   setBadge(tabId, 'connecting')
@@ -479,8 +485,10 @@ async function autoAttachIfNeeded(tabId, url) {
   })
 
   try {
+    console.log('[auto-attach] starting attach for tabId:', tabId)
     await ensureRelayConnection()
     await attachTab(tabId)
+    console.log('[auto-attach] successfully attached tabId:', tabId)
   } catch (err) {
     tabs.delete(tabId)
     setBadge(tabId, 'error')
@@ -490,11 +498,19 @@ async function autoAttachIfNeeded(tabId, url) {
     })
     void maybeOpenHelpOnce()
     const message = err instanceof Error ? err.message : String(err)
-    console.warn('auto-attach failed', message, nowStack())
+    console.warn('[auto-attach] failed for tabId:', tabId, 'error:', message, nowStack())
   }
 }
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'loading') {
+    const existing = tabs.get(tabId)
+    if (existing?.state === 'connected' || existing?.state === 'connecting') {
+      console.log('[auto-attach] page reloading, will re-attach after load complete')
+      void detachTab(tabId, 'page-reload')
+    }
+  }
+  
   if (changeInfo.status === 'complete' && tab.url) {
     void autoAttachIfNeeded(tabId, tab.url)
   }
